@@ -29,7 +29,7 @@ export async function summarizeArticle(
 
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 1024,
+    max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [
       {
@@ -44,7 +44,7 @@ export async function summarizeArticle(
   const content = message.content[0];
   if (content.type !== "text") throw new Error("Unexpected response type from AI model");
 
-  const raw = content.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  const raw = content.text.replace(/^```(?:json)?\r?\n?/im, "").replace(/\r?\n?```\s*$/m, "").trim();
 
   let parsed: Omit<ArticleSummaryResult, "tokens_used">;
   try {
