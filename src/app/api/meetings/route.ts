@@ -1,76 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import sql from "@/lib/db";
+import { getSession } from "@/lib/auth";
 import { summarizeTranscript } from "@/lib/summarize";
-import { PLAN_LIMITS } from "@/lib/supabase/types";
+import { PLAN_LIMITS } from "@/lib/types";
 
 const PAGE_SIZE = 20;
 
 // GET /api/meetings?page=1
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const page = parseInt(request.nextUrl.searchParams.get("page") ?? "1");
   const offset = (page - 1) * PAGE_SIZE;
 
-  const { data, error, count } = await supabase
-    .from("meetings")
-    .select("id, title, status, created_at", { count: "exact" })
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
+  const meetings = await sql`
+    SELECT id, title, status, created_at
+    FROM meetings
+    WHERE user_id = ${session.userId}
+    ORDER BY created_at DESC
+    LIMIT ${PAGE_SIZE} OFFSET ${offset}
+  `;
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const [{ count }] = await sql`
+    SELECT COUNT(*)::int AS count FROM meetings WHERE user_id = ${session.userId}
+  `;
 
-  return NextResponse.json({ meetings: data, total: count, page });
+  return NextResponse.json({ meetings, total: count, page });
 }
 
-// POST /api/meetings  — submit transcript, summarize synchronously
+// POST /api/meetings
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Check and enforce plan limits
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("plan, meetings_this_month, reset_date")
-    .eq("id", user.id)
-    .single();
+  const [user] = await sql`
+    SELECT plan, meetings_this_month, reset_date FROM users WHERE id = ${session.userId}
+  `;
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  if (profileError || !profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 500 });
-  }
-
-  // Reset monthly counter if past reset_date
+  // Reset monthly counter if month has rolled over
   const today = new Date().toISOString().split("T")[0];
-  if (today >= profile.reset_date) {
-    const nextReset = new Date(profile.reset_date);
-    nextReset.setMonth(nextReset.getMonth() + 1);
-    await supabase
-      .from("profiles")
-      .update({ meetings_this_month: 0, reset_date: nextReset.toISOString().split("T")[0] })
-      .eq("id", user.id);
-    profile.meetings_this_month = 0;
+  if (today >= user.reset_date) {
+    const next = new Date(user.reset_date);
+    next.setMonth(next.getMonth() + 1);
+    await sql`
+      UPDATE users
+      SET meetings_this_month = 0, reset_date = ${next.toISOString().split("T")[0]}
+      WHERE id = ${session.userId}
+    `;
+    user.meetings_this_month = 0;
   }
 
-  const limit = PLAN_LIMITS[profile.plan as keyof typeof PLAN_LIMITS];
-  if (profile.meetings_this_month >= limit) {
+  const limit = PLAN_LIMITS[user.plan as keyof typeof PLAN_LIMITS];
+  if (user.meetings_this_month >= limit) {
     return NextResponse.json(
       { error: "Monthly meeting limit reached. Upgrade to Pro for more.", upgrade: true },
       { status: 402 }
     );
   }
 
-  const body = await request.json();
-  const { transcript, title } = body;
+  const { transcript, title } = await request.json();
 
   if (!transcript || typeof transcript !== "string" || transcript.trim().length < 50) {
     return NextResponse.json(
@@ -79,59 +69,34 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Insert meeting as 'processing'
-  const { data: meeting, error: insertError } = await supabase
-    .from("meetings")
-    .insert({
-      user_id: user.id,
-      title: title?.trim() || "Untitled Meeting",
-      raw_transcript: transcript.trim(),
-      status: "processing",
-    })
-    .select()
-    .single();
+  const [meeting] = await sql`
+    INSERT INTO meetings (user_id, title, raw_transcript, status)
+    VALUES (${session.userId}, ${title?.trim() || "Untitled Meeting"}, ${transcript.trim()}, 'processing')
+    RETURNING *
+  `;
 
-  if (insertError || !meeting) {
-    return NextResponse.json({ error: insertError?.message }, { status: 500 });
-  }
-
-  // Summarize synchronously
   let summaryData;
   try {
     summaryData = await summarizeTranscript(transcript);
-  } catch (err) {
-    await supabase.from("meetings").update({ status: "failed" }).eq("id", meeting.id);
+  } catch {
+    await sql`UPDATE meetings SET status = 'failed' WHERE id = ${meeting.id}`;
     return NextResponse.json({ error: "AI summarization failed. Please try again." }, { status: 500 });
   }
 
-  // Store summary
-  const { data: summary, error: summaryError } = await supabase
-    .from("summaries")
-    .insert({
-      meeting_id: meeting.id,
-      overview: summaryData.overview,
-      decisions: summaryData.decisions,
-      action_items: summaryData.action_items,
-      open_questions: summaryData.open_questions,
-      model: "claude-haiku-4-5",
-      tokens_used: summaryData.tokens_used,
-    })
-    .select()
-    .single();
+  const [summary] = await sql`
+    INSERT INTO summaries (meeting_id, overview, decisions, action_items, open_questions, model, tokens_used)
+    VALUES (
+      ${meeting.id}, ${summaryData.overview},
+      ${JSON.stringify(summaryData.decisions)},
+      ${JSON.stringify(summaryData.action_items)},
+      ${JSON.stringify(summaryData.open_questions)},
+      ${"claude-haiku-4-5"}, ${summaryData.tokens_used}
+    )
+    RETURNING *
+  `;
 
-  if (summaryError) {
-    await supabase.from("meetings").update({ status: "failed" }).eq("id", meeting.id);
-    return NextResponse.json({ error: summaryError.message }, { status: 500 });
-  }
-
-  // Mark done and increment counter
-  await Promise.all([
-    supabase.from("meetings").update({ status: "done" }).eq("id", meeting.id),
-    supabase
-      .from("profiles")
-      .update({ meetings_this_month: profile.meetings_this_month + 1 })
-      .eq("id", user.id),
-  ]);
+  await sql`UPDATE meetings SET status = 'done' WHERE id = ${meeting.id}`;
+  await sql`UPDATE users SET meetings_this_month = meetings_this_month + 1 WHERE id = ${session.userId}`;
 
   return NextResponse.json({ meeting: { ...meeting, status: "done" }, summary }, { status: 201 });
 }

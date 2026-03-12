@@ -1,13 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 // POST /api/billing/checkout — create Lemon Squeezy checkout URL
-export async function POST(_request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function POST() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const apiKey = process.env.LEMONSQUEEZY_API_KEY;
   const storeId = process.env.LEMONSQUEEZY_STORE_ID;
@@ -21,8 +18,8 @@ export async function POST(_request: NextRequest) {
   const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Accept": "application/vnd.api+json",
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/vnd.api+json",
       "Content-Type": "application/vnd.api+json",
     },
     body: JSON.stringify({
@@ -30,8 +27,8 @@ export async function POST(_request: NextRequest) {
         type: "checkouts",
         attributes: {
           checkout_data: {
-            email: user.email,
-            custom: { user_id: user.id },
+            email: session.email,
+            custom: { user_id: session.userId },
           },
           product_options: {
             redirect_url: `${appUrl}/dashboard?upgraded=1`,
@@ -50,7 +47,5 @@ export async function POST(_request: NextRequest) {
   }
 
   const json = await response.json();
-  const checkoutUrl = json?.data?.attributes?.url;
-
-  return NextResponse.json({ url: checkoutUrl });
+  return NextResponse.json({ url: json?.data?.attributes?.url });
 }

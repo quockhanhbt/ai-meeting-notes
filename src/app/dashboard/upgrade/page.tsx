@@ -1,21 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 export default function UpgradePage() {
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleUpgrade() {
     setLoading(true);
     setError(null);
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch("/api/billing/checkout", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    });
+    const res = await fetch("/api/billing/checkout", { method: "POST" });
     const json = await res.json();
     if (!res.ok) {
       setError(json.error ?? "Could not create checkout. Try again.");
@@ -28,9 +22,7 @@ export default function UpgradePage() {
   return (
     <div className="max-w-lg mx-auto text-center py-16">
       <h1 className="text-3xl font-bold mb-4">Upgrade to Pro</h1>
-      <p className="text-gray-500 mb-8">
-        Get 100 meetings/month — 10x more than the free plan.
-      </p>
+      <p className="text-gray-500 mb-8">Get 100 meetings/month — 10x more than the free plan.</p>
       <div className="rounded-xl border border-indigo-200 bg-white p-8 shadow-sm mb-8">
         <p className="text-5xl font-bold text-gray-900">$9</p>
         <p className="text-gray-400 mt-1">per month</p>

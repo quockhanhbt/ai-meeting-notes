@@ -1,41 +1,45 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { Meeting } from "@/lib/supabase/types";
+import { getSession } from "@/lib/auth";
+import sql from "@/lib/db";
+import { Meeting } from "@/lib/types";
+
+const PAGE_SIZE = 20;
 
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; page?: string; upgraded?: string }>;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const session = await getSession();
   const params = await searchParams;
   const q = params.q?.trim();
   const page = parseInt(params.page ?? "1");
-  const PAGE_SIZE = 20;
 
   let meetings: Meeting[] = [];
   let total = 0;
 
   if (q) {
-    const { data } = await supabase
-      .from("meetings")
-      .select("id, title, status, created_at")
-      .eq("user_id", user!.id)
-      .textSearch("fts", q, { type: "websearch", config: "english" })
-      .order("created_at", { ascending: false })
-      .limit(PAGE_SIZE);
-    meetings = (data ?? []) as unknown as Meeting[];
+    meetings = (await sql`
+      SELECT id, title, status, created_at
+      FROM meetings
+      WHERE user_id = ${session!.userId}
+        AND fts @@ websearch_to_tsquery('english', ${q})
+      ORDER BY created_at DESC
+      LIMIT ${PAGE_SIZE}
+    `) as unknown as Meeting[];
   } else {
     const offset = (page - 1) * PAGE_SIZE;
-    const { data, count } = await supabase
-      .from("meetings")
-      .select("id, title, status, created_at", { count: "exact" })
-      .eq("user_id", user!.id)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
-    meetings = (data ?? []) as unknown as Meeting[];
-    total = count ?? 0;
+    meetings = (await sql`
+      SELECT id, title, status, created_at
+      FROM meetings
+      WHERE user_id = ${session!.userId}
+      ORDER BY created_at DESC
+      LIMIT ${PAGE_SIZE} OFFSET ${offset}
+    `) as unknown as Meeting[];
+    const [{ count }] = await sql`
+      SELECT COUNT(*)::int AS count FROM meetings WHERE user_id = ${session!.userId}
+    `;
+    total = count;
   }
 
   return (
@@ -56,7 +60,6 @@ export default async function DashboardPage({
         </Link>
       </div>
 
-      {/* Search */}
       <form className="mb-6">
         <input
           name="q"
@@ -96,23 +99,16 @@ export default async function DashboardPage({
         </ul>
       )}
 
-      {/* Pagination */}
       {!q && total > PAGE_SIZE && (
         <div className="flex justify-center gap-4 mt-8">
           {page > 1 && (
-            <Link
-              href={`/dashboard?page=${page - 1}`}
-              className="text-sm text-indigo-600 hover:underline"
-            >
+            <Link href={`/dashboard?page=${page - 1}`} className="text-sm text-indigo-600 hover:underline">
               Previous
             </Link>
           )}
           <span className="text-sm text-gray-500">Page {page}</span>
           {page * PAGE_SIZE < total && (
-            <Link
-              href={`/dashboard?page=${page + 1}`}
-              className="text-sm text-indigo-600 hover:underline"
-            >
+            <Link href={`/dashboard?page=${page + 1}`} className="text-sm text-indigo-600 hover:underline">
               Next
             </Link>
           )}

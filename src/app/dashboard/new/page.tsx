@@ -2,13 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-
-const LIMIT_WARNING_THRESHOLD = 8; // show nudge at 8/10 on free plan
 
 export default function NewMeetingPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [title, setTitle] = useState("");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,13 +17,9 @@ export default function NewMeetingPage() {
     setLoading(true);
     setUpgrade(false);
 
-    const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch("/api/meetings", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: title || undefined, transcript }),
     });
 
@@ -78,10 +70,7 @@ export default function NewMeetingPage() {
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
             {error}
             {upgrade && (
-              <a
-                href="/dashboard/upgrade"
-                className="ml-2 font-semibold underline"
-              >
+              <a href="/dashboard/upgrade" className="ml-2 font-semibold underline">
                 Upgrade to Pro →
               </a>
             )}

@@ -1,8 +1,9 @@
 export type Plan = "free" | "pro";
 export type MeetingStatus = "pending" | "processing" | "done" | "failed";
 
-export interface Profile {
+export interface User {
   id: string;
+  email: string;
   plan: Plan;
   meetings_this_month: number;
   reset_date: string;
@@ -13,10 +14,13 @@ export interface Meeting {
   id: string;
   user_id: string;
   title: string;
-  raw_transcript: string;
   status: MeetingStatus;
   created_at: string;
-  summaries?: Summary[];
+}
+
+export interface MeetingWithSummary extends Meeting {
+  raw_transcript: string;
+  summary?: Summary;
 }
 
 export interface Summary {
