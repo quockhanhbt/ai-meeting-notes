@@ -50,41 +50,36 @@ function extractText($: ReturnType<typeof cheerio.load>, container: ReturnType<t
 export async function fetchArticleContent(url: string): Promise<ArticleContent> {
   const source = new URL(url).hostname.replace(/^www\./, "");
 
+  // Race all user-agents in parallel — whichever succeeds first wins.
+  // This cuts worst-case fetch time from (n × timeout) to one timeout window.
   let html = "";
-  let fetchError: Error | null = null;
-
-  for (const ua of USER_AGENTS) {
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        headers: {
-          "User-Agent": ua,
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-        signal: AbortSignal.timeout(15_000),
-      });
-    } catch (err) {
-      const cause = err instanceof Error ? err.message : String(err);
-      if (cause.includes("timed out") || cause.includes("timeout")) {
-        throw new Error("Request timed out while fetching the article URL.");
-      }
+  try {
+    html = await Promise.any(
+      USER_AGENTS.map(async (ua) => {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": ua,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return res.text();
+      })
+    );
+  } catch (err: unknown) {
+    if (err instanceof AggregateError) {
+      // All UAs failed — surface a useful message
+      const causes = err.errors.map((e: unknown) => (e instanceof Error ? e.message : String(e)));
+      const timedOut = causes.some((c) => c.includes("timed out") || c.includes("timeout"));
+      if (timedOut) throw new Error("Request timed out while fetching the article URL.");
       throw new Error(
-        `Could not reach the article URL (${cause}). Check that the URL is publicly accessible.`
+        `Failed to fetch article (${causes[0]}). Check that the URL is publicly accessible.`
       );
     }
-
-    if (!res.ok) {
-      fetchError = new Error(`Failed to fetch article: ${res.status} ${res.statusText}`);
-      continue;
-    }
-
-    html = await res.text();
-    break;
-  }
-
-  if (!html) {
-    throw fetchError ?? new Error("Failed to fetch article.");
+    const cause = err instanceof Error ? err.message : String(err);
+    throw new Error(`Could not reach the article URL: ${cause}`);
   }
 
   const $ = cheerio.load(html);

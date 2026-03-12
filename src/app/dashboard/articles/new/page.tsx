@@ -9,11 +9,20 @@ export default function NewArticlePage() {
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<"fetch" | "summarize">("fetch");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    setStep("fetch");
+
+    // Show "summarizing" message after 8 s (article likely fetched, now in AI)
+    const stepTimer = setTimeout(() => setStep("summarize"), 8_000);
+
+    const controller = new AbortController();
+    // Abort if the server takes more than 75 s total
+    const abortTimer = setTimeout(() => controller.abort(), 75_000);
 
     let res: Response;
     try {
@@ -21,12 +30,23 @@ export default function NewArticlePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, title: title || undefined }),
+        signal: controller.signal,
       });
-    } catch {
-      setError("Network error: could not reach the server. Please try again.");
+    } catch (err) {
+      clearTimeout(stepTimer);
+      clearTimeout(abortTimer);
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      setError(
+        isAbort
+          ? "This is taking too long. The site may be slow or require JavaScript to render. Please try again or use a different URL."
+          : "Network error: could not reach the server. Please try again."
+      );
       setLoading(false);
       return;
     }
+
+    clearTimeout(stepTimer);
+    clearTimeout(abortTimer);
 
     const json = await res.json();
 
@@ -94,7 +114,11 @@ export default function NewArticlePage() {
             disabled={loading || !url.trim()}
             className="w-full sm:w-auto rounded-lg bg-indigo-600 px-6 py-3 sm:py-2.5 text-white font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Fetching & summarizing…" : "Fetch & summarize"}
+            {loading
+              ? step === "fetch"
+                ? "Fetching article…"
+                : "Summarizing…"
+              : "Fetch & summarize"}
           </button>
           <button
             type="button"
