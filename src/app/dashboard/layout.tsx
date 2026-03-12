@@ -36,7 +36,7 @@ export default async function DashboardLayout({
       {/* Sidebar + content */}
       <div className="flex flex-1 overflow-hidden">
         <SidebarNav plan={user?.plan ?? "free"} />
-        <main className="flex-1 overflow-y-auto px-8 py-8">
+        <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-8 pb-24 md:pb-8">
           <div className="max-w-3xl">
             {children}
           </div>

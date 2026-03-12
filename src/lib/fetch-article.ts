@@ -9,14 +9,23 @@ export interface ArticleContent {
 export async function fetchArticleContent(url: string): Promise<ArticleContent> {
   const source = new URL(url).hostname.replace(/^www\./, "");
 
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err);
+    if (cause.includes("timed out") || cause.includes("timeout")) {
+      throw new Error("Request timed out while fetching the article URL.");
+    }
+    throw new Error(`Could not reach the article URL (${cause}). Check that the URL is publicly accessible.`);
+  }
 
   if (!res.ok) {
     throw new Error(`Failed to fetch article: ${res.status} ${res.statusText}`);
