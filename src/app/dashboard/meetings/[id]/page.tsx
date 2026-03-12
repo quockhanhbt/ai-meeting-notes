@@ -13,16 +13,27 @@ export default async function MeetingDetailPage({
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const [meeting] = await sql`
-    SELECT m.*, row_to_json(s.*) AS summary
+  const [row] = await sql`
+    SELECT
+      m.id, m.title, m.status, m.created_at,
+      s.overview, s.decisions, s.action_items, s.open_questions,
+      s.model, s.tokens_used
     FROM meetings m
     LEFT JOIN summaries s ON s.meeting_id = m.id
     WHERE m.id = ${id} AND m.user_id = ${session.userId}
   `;
 
-  if (!meeting) notFound();
+  if (!row) notFound();
 
-  const summary = meeting.summary;
+  const meeting = { id: row.id, title: row.title, status: row.status, created_at: row.created_at };
+  const summary = row.overview != null ? {
+    overview: row.overview,
+    decisions: row.decisions ?? [],
+    action_items: row.action_items ?? [],
+    open_questions: row.open_questions ?? [],
+    model: row.model,
+    tokens_used: row.tokens_used,
+  } : null;
 
   return (
     <div className="max-w-2xl">

@@ -11,16 +11,29 @@ export async function GET(
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [meeting] = await sql`
-    SELECT m.*, row_to_json(s.*) AS summary
+  const [row] = await sql`
+    SELECT
+      m.id, m.title, m.status, m.created_at,
+      s.overview, s.decisions, s.action_items, s.open_questions,
+      s.model, s.tokens_used
     FROM meetings m
     LEFT JOIN summaries s ON s.meeting_id = m.id
     WHERE m.id = ${id} AND m.user_id = ${session.userId}
   `;
 
-  if (!meeting) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+  if (!row) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
 
-  return NextResponse.json({ meeting });
+  const meeting = { id: row.id, title: row.title, status: row.status, created_at: row.created_at };
+  const summary = row.overview != null ? {
+    overview: row.overview,
+    decisions: row.decisions ?? [],
+    action_items: row.action_items ?? [],
+    open_questions: row.open_questions ?? [],
+    model: row.model,
+    tokens_used: row.tokens_used,
+  } : null;
+
+  return NextResponse.json({ meeting, summary });
 }
 
 // PATCH /api/meetings/:id — update title only
