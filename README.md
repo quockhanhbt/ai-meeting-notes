@@ -44,11 +44,11 @@ Paste your meeting transcript, drop in an article URL, or share a YouTube link â
 
 | Layer | Choice |
 |---|---|
-| Framework | Next.js 15 (App Router) + TypeScript |
+| Framework | Next.js 16 (App Router) + TypeScript |
 | Styling | Tailwind CSS |
 | Database | Supabase (Postgres via transaction pooler) |
-| Auth | Supabase Auth |
-| AI | Anthropic Claude Haiku 4.5 |
+| Auth | Custom JWT (jose) + bcryptjs, httpOnly cookie |
+| AI | Anthropic Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
 | Content Parsing | Cheerio (articles) + youtube-transcript (videos) |
 | Payments | Lemon Squeezy |
 | Deployment | Vercel |
