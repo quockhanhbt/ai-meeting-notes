@@ -128,7 +128,7 @@ export default async function MeetingDetailPage({
           )}
 
           <p className="text-xs text-gray-300 text-right">
-            Summarized with {summary.model} &middot; {summary.tokens_used.toLocaleString()} tokens
+            Summarized with {summary.model} &middot; {(summary.tokens_used ?? 0).toLocaleString()} tokens
           </p>
         </div>
       )}
