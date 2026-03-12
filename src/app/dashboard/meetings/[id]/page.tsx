@@ -4,6 +4,21 @@ import { getSession } from "@/lib/auth";
 import sql from "@/lib/db";
 import DeleteMeetingButton from "./DeleteMeetingButton";
 
+// JSONB columns may come back as a parsed array OR as a JSON string depending
+// on the postgres.js version / query mode. Handle both defensively.
+function toArray<T>(val: unknown): T[] {
+  if (Array.isArray(val)) return val as T[];
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export default async function MeetingDetailPage({
   params,
 }: {
@@ -27,12 +42,12 @@ export default async function MeetingDetailPage({
 
   const meeting = { id: row.id, title: row.title, status: row.status, created_at: row.created_at };
   const summary = row.overview != null ? {
-    overview: row.overview,
-    decisions: row.decisions ?? [],
-    action_items: row.action_items ?? [],
-    open_questions: row.open_questions ?? [],
-    model: row.model,
-    tokens_used: row.tokens_used,
+    overview: row.overview as string,
+    decisions: toArray<{ text: string; owner?: string }>(row.decisions),
+    action_items: toArray<{ text: string; assignee?: string; due_date?: string }>(row.action_items),
+    open_questions: toArray<{ text: string }>(row.open_questions),
+    model: row.model as string,
+    tokens_used: (row.tokens_used as number) ?? 0,
   } : null;
 
   return (
@@ -74,11 +89,11 @@ export default async function MeetingDetailPage({
             <p className="text-gray-800 leading-relaxed">{summary.overview}</p>
           </section>
 
-          {summary.decisions?.length > 0 && (
+          {summary.decisions.length > 0 && (
             <section className="rounded-lg border border-gray-200 bg-white p-5">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Key Decisions</h2>
               <ul className="space-y-2">
-                {summary.decisions.map((d: { text: string; owner?: string }, i: number) => (
+                {summary.decisions.map((d, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="text-indigo-500 mt-0.5">&#10003;</span>
                     <span className="text-gray-800">
@@ -91,33 +106,31 @@ export default async function MeetingDetailPage({
             </section>
           )}
 
-          {summary.action_items?.length > 0 && (
+          {summary.action_items.length > 0 && (
             <section className="rounded-lg border border-indigo-100 bg-indigo-50 p-5">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-3">Action Items</h2>
               <ul className="space-y-3">
-                {summary.action_items.map(
-                  (a: { text: string; assignee?: string; due_date?: string }, i: number) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="text-indigo-400 mt-0.5">&#9654;</span>
-                      <div>
-                        <p className="text-gray-900">{a.text}</p>
-                        <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
-                          {a.assignee && <span>Assignee: {a.assignee}</span>}
-                          {a.due_date && <span>Due: {a.due_date}</span>}
-                        </div>
+                {summary.action_items.map((a, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-indigo-400 mt-0.5">&#9654;</span>
+                    <div>
+                      <p className="text-gray-900">{a.text}</p>
+                      <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
+                        {a.assignee && <span>Assignee: {a.assignee}</span>}
+                        {a.due_date && <span>Due: {a.due_date}</span>}
                       </div>
-                    </li>
-                  )
-                )}
+                    </div>
+                  </li>
+                ))}
               </ul>
             </section>
           )}
 
-          {summary.open_questions?.length > 0 && (
+          {summary.open_questions.length > 0 && (
             <section className="rounded-lg border border-gray-200 bg-white p-5">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Open Questions</h2>
               <ul className="space-y-2">
-                {summary.open_questions.map((q: { text: string }, i: number) => (
+                {summary.open_questions.map((q, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="text-yellow-500 mt-0.5">?</span>
                     <span className="text-gray-800">{q.text}</span>
@@ -128,7 +141,7 @@ export default async function MeetingDetailPage({
           )}
 
           <p className="text-xs text-gray-300 text-right">
-            Summarized with {summary.model} &middot; {(summary.tokens_used ?? 0).toLocaleString()} tokens
+            Summarized with {summary.model} &middot; {summary.tokens_used.toLocaleString()} tokens
           </p>
         </div>
       )}

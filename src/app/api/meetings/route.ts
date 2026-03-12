@@ -90,9 +90,9 @@ export async function POST(request: NextRequest) {
     INSERT INTO summaries (meeting_id, overview, decisions, action_items, open_questions, model, tokens_used)
     VALUES (
       ${meeting.id}, ${summaryData.overview},
-      ${JSON.stringify(summaryData.decisions)},
-      ${JSON.stringify(summaryData.action_items)},
-      ${JSON.stringify(summaryData.open_questions)},
+      ${JSON.stringify(summaryData.decisions)}::jsonb,
+      ${JSON.stringify(summaryData.action_items)}::jsonb,
+      ${JSON.stringify(summaryData.open_questions)}::jsonb,
       ${"claude-haiku-4-5"}, ${summaryData.tokens_used}
     )
     RETURNING *
