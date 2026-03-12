@@ -78,9 +78,10 @@ export async function POST(request: NextRequest) {
   let summaryData;
   try {
     summaryData = await summarizeTranscript(transcript);
-  } catch {
+  } catch (err) {
     await sql`UPDATE meetings SET status = 'failed' WHERE id = ${meeting.id}`;
-    return NextResponse.json({ error: "AI summarization failed. Please try again." }, { status: 500 });
+    const message = err instanceof Error ? err.message : "AI summarization failed.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   const [summary] = await sql`
