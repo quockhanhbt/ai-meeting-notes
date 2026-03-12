@@ -53,9 +53,12 @@ export async function summarizeTranscript(
     throw new Error("Unexpected response type from AI model");
   }
 
+  // Strip markdown code fences if the model wrapped the JSON in ```json ... ```
+  const raw = content.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
   let parsed: Omit<SummaryResult, "tokens_used">;
   try {
-    parsed = JSON.parse(content.text);
+    parsed = JSON.parse(raw);
   } catch {
     throw new Error(`Failed to parse AI response as JSON: ${content.text}`);
   }
