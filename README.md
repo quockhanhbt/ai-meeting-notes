@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MeetingMind — AI Meeting Note Summarizer
 
-## Getting Started
+Paste your meeting transcript and get instant AI-powered summaries, action items, and key decisions — in seconds.
 
-First, run the development server:
+![MeetingMind Dashboard](public/screenshots/dashboard.png)
+
+---
+
+## Features
+
+- **AI Summarization** — Powered by Claude Haiku. Extracts a TL;DR, key decisions, action items (with assignee & due date), and open questions from any meeting transcript.
+- **Meeting History** — Full searchable archive of all your past meetings.
+- **Free tier** — 10 meetings/month at no cost. Upgrade to Pro for 100/month at $9/mo.
+- **$0/mo infrastructure** — Built on Supabase (Postgres) + Vercel free tiers.
+
+---
+
+## Screenshots
+
+### Landing Page
+![Landing page](public/screenshots/landing.png)
+
+### Register / Login
+![Register page](public/screenshots/register.png)
+
+### Dashboard
+![Dashboard with meeting list](public/screenshots/dashboard.png)
+
+### New Meeting — Paste Transcript
+![New meeting form](public/screenshots/new-meeting.png)
+
+### Meeting Summary
+![AI-generated summary with action items](public/screenshots/meeting-detail.png)
+
+### Upgrade to Pro
+![Upgrade page](public/screenshots/upgrade.png)
+
+---
+
+## Tech Stack
+
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 15 (App Router) + TypeScript |
+| Styling | Tailwind CSS |
+| Database | Supabase (Postgres via transaction pooler) |
+| Auth | Custom JWT (jose) + bcryptjs, httpOnly cookie |
+| AI | Anthropic Claude Haiku 4.5 |
+| Payments | Lemon Squeezy |
+| Deployment | Vercel |
+
+---
+
+## Getting Started (Local)
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd ai-meeting-notes
+npm install
+```
+
+### 2. Set up environment variables
+
+```bash
+cp .env.local.example .env.local
+```
+
+Edit `.env.local` and fill in:
+
+| Variable | Where to get it |
+|---|---|
+| `DATABASE_URL` | Supabase → Project Settings → Database → **Transaction pooler** connection string |
+| `JWT_SECRET` | Run: `openssl rand -base64 32` |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) → API Keys |
+| `LEMONSQUEEZY_*` | [app.lemonsqueezy.com](https://app.lemonsqueezy.com) (optional for billing) |
+
+### 3. Set up the database
+
+Go to your **Supabase project → SQL Editor** and run the contents of [`supabase/schema.sql`](supabase/schema.sql).
+
+This creates the `users`, `meetings`, and `summaries` tables with full-text search indexes.
+
+### 4. Run the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment (Vercel)
 
-## Learn More
+1. Push to GitHub
+2. Import the repo in [vercel.com/new](https://vercel.com/new)
+3. Add environment variables in **Settings → Environment Variables**:
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `ANTHROPIC_API_KEY`
+4. Deploy — that's it.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── auth/          # register / login / logout
+│   │   ├── meetings/      # CRUD + full-text search
+│   │   ├── billing/       # Lemon Squeezy checkout
+│   │   └── webhooks/      # Lemon Squeezy payment events
+│   ├── dashboard/         # Protected pages (meetings list, detail, new, upgrade)
+│   ├── login/
+│   ├── register/
+│   └── page.tsx           # Landing page
+├── lib/
+│   ├── auth.ts            # JWT sign/verify, session helpers
+│   ├── db.ts              # postgres.js client
+│   ├── summarize.ts       # Anthropic API call
+│   └── types.ts           # Shared TypeScript types
+└── middleware.ts           # Auth guard (redirects unauthenticated users)
 
-## Deploy on Vercel
+supabase/
+└── schema.sql             # Full database schema — run once to bootstrap
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Pricing
+
+| Plan | Price | Meetings/month |
+|---|---|---|
+| Free | $0 | 10 |
+| Pro | $9/mo | 100 |
+
+---
+
+## License
+
+MIT
