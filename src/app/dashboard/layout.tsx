@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import sql from "@/lib/db";
 import SignOutButton from "./SignOutButton";
+import SidebarNav from "./SidebarNav";
 
 export default async function DashboardLayout({
   children,
@@ -17,29 +18,30 @@ export default async function DashboardLayout({
   `;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-gray-200 bg-white px-6 py-4 flex items-center justify-between">
-        <Link href="/dashboard" className="text-xl font-bold text-indigo-600">
-          MeetingMind
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Top header */}
+      <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-6 flex-shrink-0">
+        <Link href="/dashboard" className="text-lg font-bold text-indigo-600 tracking-tight">
+          ContentMind
         </Link>
-        <div className="flex items-center gap-6">
-          <span className="text-sm text-gray-500">
-            {user?.meetings_this_month ?? 0} /{" "}
-            {user?.plan === "pro" ? 100 : 10} meetings this month
-            {user?.plan === "free" && (
-              <Link
-                href="/dashboard/upgrade"
-                className="ml-2 text-indigo-600 hover:underline font-medium"
-              >
-                Upgrade
-              </Link>
-            )}
+        <div className="flex items-center gap-5">
+          <span className="text-sm text-gray-500 hidden sm:block">
+            {user?.meetings_this_month ?? 0} / {user?.plan === "pro" ? 100 : 10} meetings
           </span>
-          <span className="text-sm text-gray-400">{user?.email}</span>
+          <span className="text-sm text-gray-400 hidden md:block">{user?.email}</span>
           <SignOutButton />
         </div>
       </header>
-      <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">{children}</main>
+
+      {/* Sidebar + content */}
+      <div className="flex flex-1 overflow-hidden">
+        <SidebarNav plan={user?.plan ?? "free"} />
+        <main className="flex-1 overflow-y-auto px-8 py-8">
+          <div className="max-w-3xl">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

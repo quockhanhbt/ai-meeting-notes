@@ -60,6 +60,60 @@ CREATE INDEX IF NOT EXISTS summaries_meeting_id_idx ON public.summaries(meeting_
 ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS location TEXT;
 ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS attendees TEXT;
 
+-- 4. articles
+CREATE TABLE IF NOT EXISTS public.articles (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  title          TEXT NOT NULL DEFAULT 'Untitled Article',
+  url            TEXT NOT NULL,
+  source         TEXT,
+  status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'done', 'failed')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS articles_user_id_idx ON public.articles(user_id);
+CREATE INDEX IF NOT EXISTS articles_created_at_idx ON public.articles(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.article_summaries (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  article_id     UUID NOT NULL UNIQUE REFERENCES public.articles(id) ON DELETE CASCADE,
+  overview       TEXT,
+  key_points     JSONB NOT NULL DEFAULT '[]',
+  sentiment      TEXT,
+  model          TEXT NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
+  tokens_used    INTEGER NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS article_summaries_article_id_idx ON public.article_summaries(article_id);
+
+-- 5. videos
+CREATE TABLE IF NOT EXISTS public.videos (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  title          TEXT NOT NULL DEFAULT 'Untitled Video',
+  url            TEXT NOT NULL,
+  platform       TEXT NOT NULL DEFAULT 'youtube',
+  status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'done', 'failed')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS videos_user_id_idx ON public.videos(user_id);
+CREATE INDEX IF NOT EXISTS videos_created_at_idx ON public.videos(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.video_summaries (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  video_id       UUID NOT NULL UNIQUE REFERENCES public.videos(id) ON DELETE CASCADE,
+  overview       TEXT,
+  highlights     JSONB NOT NULL DEFAULT '[]',
+  key_topics     JSONB NOT NULL DEFAULT '[]',
+  model          TEXT NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
+  tokens_used    INTEGER NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS video_summaries_video_id_idx ON public.video_summaries(video_id);
+
 -- ============================================================
 -- User isolation is enforced via WHERE user_id = $userId in
 -- every API route query — no RLS needed.

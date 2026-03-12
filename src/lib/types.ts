@@ -41,3 +41,39 @@ export const PLAN_LIMITS: Record<Plan, number> = {
   free: 10,
   pro: 100,
 };
+
+export type ContentStatus = "pending" | "processing" | "done" | "failed";
+
+export interface Article {
+  id: string;
+  user_id: string;
+  title: string;
+  url: string;
+  source: string | null;
+  status: ContentStatus;
+  created_at: string;
+}
+
+export interface ArticleSummaryResult {
+  overview: string;
+  key_points: Array<{ text: string }>;
+  sentiment: string | null;
+  tokens_used: number;
+}
+
+export interface Video {
+  id: string;
+  user_id: string;
+  title: string;
+  url: string;
+  platform: string;
+  status: ContentStatus;
+  created_at: string;
+}
+
+export interface VideoSummaryResult {
+  overview: string;
+  highlights: Array<{ text: string; timestamp?: string }>;
+  key_topics: Array<{ text: string }>;
+  tokens_used: number;
+}
