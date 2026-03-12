@@ -19,6 +19,7 @@ Return exactly this shape:
 }
 
 Rules:
+- Detect the language of the transcript and write ALL text values in that same language
 - Be concise but complete
 - If a field has no items, return an empty array []
 - Extract owner/assignee from context if mentioned
@@ -39,7 +40,7 @@ export async function summarizeTranscript(
     messages: [
       {
         role: "user",
-        content: `Please summarize this meeting transcript:\n\n${transcript}`,
+        content: `Detect the language of the following transcript and summarize it entirely in that same language:\n\n${transcript}`,
       },
     ],
     system: SYSTEM_PROMPT,
