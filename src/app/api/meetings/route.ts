@@ -4,6 +4,8 @@ import { getSession } from "@/lib/auth";
 import { summarizeTranscript } from "@/lib/summarize";
 import { PLAN_LIMITS } from "@/lib/types";
 
+export const maxDuration = 60; // seconds — requires Vercel Pro; capped at 10s on Hobby
+
 const PAGE_SIZE = 20;
 
 // GET /api/meetings?page=1

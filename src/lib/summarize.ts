@@ -1,7 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic();
-
 export interface SummaryResult {
   overview: string;
   decisions: Array<{ text: string; owner?: string }>;
@@ -29,6 +27,12 @@ Rules:
 export async function summarizeTranscript(
   transcript: string
 ): Promise<SummaryResult> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY environment variable is not set.");
+  }
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1024,
