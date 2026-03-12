@@ -14,6 +14,8 @@ export interface Meeting {
   id: string;
   user_id: string;
   title: string;
+  location?: string | null;
+  attendees?: string | null;
   status: MeetingStatus;
   created_at: string;
 }

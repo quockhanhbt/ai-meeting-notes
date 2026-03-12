@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import sql from "@/lib/db";
 import DeleteMeetingButton from "./DeleteMeetingButton";
+import EditableTitle from "./EditableTitle";
 
 // JSONB columns may come back as a parsed array OR as a JSON string depending
 // on the postgres.js version / query mode. Handle both defensively.
@@ -30,7 +31,7 @@ export default async function MeetingDetailPage({
 
   const [row] = await sql`
     SELECT
-      m.id, m.title, m.status, m.created_at,
+      m.id, m.title, m.location, m.attendees, m.status, m.created_at,
       s.overview, s.decisions, s.action_items, s.open_questions,
       s.model, s.tokens_used
     FROM meetings m
@@ -40,7 +41,14 @@ export default async function MeetingDetailPage({
 
   if (!row) notFound();
 
-  const meeting = { id: row.id, title: row.title, status: row.status, created_at: row.created_at };
+  const meeting = {
+    id: row.id,
+    title: row.title as string,
+    location: row.location as string | null,
+    attendees: row.attendees as string | null,
+    status: row.status as string,
+    created_at: row.created_at,
+  };
   const summary = row.overview != null ? {
     overview: row.overview as string,
     decisions: toArray<{ text: string; owner?: string }>(row.decisions),
@@ -50,14 +58,19 @@ export default async function MeetingDetailPage({
     tokens_used: (row.tokens_used as number) ?? 0,
   } : null;
 
+  // Parse attendees into individual names for display
+  const attendeeList = meeting.attendees
+    ? meeting.attendees.split(",").map((a) => a.trim()).filter(Boolean)
+    : [];
+
   return (
     <div className="max-w-2xl">
       <div className="flex items-start justify-between mb-6">
-        <div>
+        <div className="flex-1 min-w-0 mr-4">
           <Link href="/dashboard" className="text-sm text-indigo-600 hover:underline mb-2 block">
             ← Back to meetings
           </Link>
-          <h1 className="text-2xl font-bold">{meeting.title}</h1>
+          <EditableTitle id={id} initialTitle={meeting.title} />
           <p className="text-sm text-gray-400 mt-1">
             {new Date(meeting.created_at).toLocaleDateString("en-US", {
               weekday: "long",
@@ -66,6 +79,27 @@ export default async function MeetingDetailPage({
               year: "numeric",
             })}
           </p>
+
+          {(meeting.location || attendeeList.length > 0) && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
+              {meeting.location && (
+                <span className="flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  {meeting.location}
+                </span>
+              )}
+              {attendeeList.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                  {attendeeList.join(", ")}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <DeleteMeetingButton id={id} />
       </div>

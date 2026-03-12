@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.meetings (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id        UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   title          TEXT NOT NULL DEFAULT 'Untitled Meeting',
+  location       TEXT,
+  attendees      TEXT,
   raw_transcript TEXT NOT NULL,
   status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'done', 'failed')),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -53,6 +55,10 @@ CREATE TABLE IF NOT EXISTS public.summaries (
 );
 
 CREATE INDEX IF NOT EXISTS summaries_meeting_id_idx ON public.summaries(meeting_id);
+
+-- Migration: add location and attendees to existing meetings table
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS attendees TEXT;
 
 -- ============================================================
 -- User isolation is enforced via WHERE user_id = $userId in

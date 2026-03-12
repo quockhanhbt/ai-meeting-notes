@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { transcript, title } = await request.json();
+  const { transcript, title, location, attendees } = await request.json();
 
   if (!transcript || typeof transcript !== "string" || transcript.trim().length < 50) {
     return NextResponse.json(
@@ -72,8 +72,15 @@ export async function POST(request: NextRequest) {
   }
 
   const [meeting] = await sql`
-    INSERT INTO meetings (user_id, title, raw_transcript, status)
-    VALUES (${session.userId}, ${title?.trim() || "Untitled Meeting"}, ${transcript.trim()}, 'processing')
+    INSERT INTO meetings (user_id, title, location, attendees, raw_transcript, status)
+    VALUES (
+      ${session.userId},
+      ${title?.trim() || "Untitled Meeting"},
+      ${location?.trim() || null},
+      ${attendees?.trim() || null},
+      ${transcript.trim()},
+      'processing'
+    )
     RETURNING *
   `;
 

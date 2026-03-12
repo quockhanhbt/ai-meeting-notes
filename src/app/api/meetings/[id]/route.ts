@@ -13,7 +13,7 @@ export async function GET(
 
   const [row] = await sql`
     SELECT
-      m.id, m.title, m.status, m.created_at,
+      m.id, m.title, m.location, m.attendees, m.status, m.created_at,
       s.overview, s.decisions, s.action_items, s.open_questions,
       s.model, s.tokens_used
     FROM meetings m
@@ -23,7 +23,14 @@ export async function GET(
 
   if (!row) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
 
-  const meeting = { id: row.id, title: row.title, status: row.status, created_at: row.created_at };
+  const meeting = {
+    id: row.id,
+    title: row.title,
+    location: row.location ?? null,
+    attendees: row.attendees ?? null,
+    status: row.status,
+    created_at: row.created_at,
+  };
   const summary = row.overview != null ? {
     overview: row.overview,
     decisions: row.decisions ?? [],
@@ -36,7 +43,7 @@ export async function GET(
   return NextResponse.json({ meeting, summary });
 }
 
-// PATCH /api/meetings/:id — update title only
+// PATCH /api/meetings/:id — update title, location, and/or attendees
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -45,13 +52,18 @@ export async function PATCH(
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title } = await request.json();
-  if (!title || typeof title !== "string") {
-    return NextResponse.json({ error: "title is required" }, { status: 400 });
+  const body = await request.json();
+  const { title, location, attendees } = body;
+
+  if (title !== undefined && (typeof title !== "string" || !title.trim())) {
+    return NextResponse.json({ error: "title must be a non-empty string" }, { status: 400 });
   }
 
   const [meeting] = await sql`
-    UPDATE meetings SET title = ${title.trim()}
+    UPDATE meetings SET
+      title     = COALESCE(${title?.trim() ?? null}, title),
+      location  = CASE WHEN ${location !== undefined} THEN ${location?.trim() || null} ELSE location END,
+      attendees = CASE WHEN ${attendees !== undefined} THEN ${attendees?.trim() || null} ELSE attendees END
     WHERE id = ${id} AND user_id = ${session.userId}
     RETURNING *
   `;

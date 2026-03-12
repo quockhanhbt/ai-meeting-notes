@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 export default function NewMeetingPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [attendees, setAttendees] = useState("");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,12 @@ export default function NewMeetingPage() {
     const res = await fetch("/api/meetings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title || undefined, transcript }),
+      body: JSON.stringify({
+        title: title || undefined,
+        location: location || undefined,
+        attendees: attendees || undefined,
+        transcript,
+      }),
     });
 
     const json = await res.json();
@@ -51,6 +58,34 @@ export default function NewMeetingPage() {
             className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Location <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Zoom, Room 4B"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Attendees <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={attendees}
+              onChange={(e) => setAttendees(e.target.value)}
+              placeholder="e.g. Alice, Bob, Carol"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Transcript <span className="text-red-500">*</span>
