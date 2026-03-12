@@ -15,11 +15,18 @@ export default function NewArticlePage() {
     setError(null);
     setLoading(true);
 
-    const res = await fetch("/api/articles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, title: title || undefined }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, title: title || undefined }),
+      });
+    } catch {
+      setError("Network error: could not reach the server. Please try again.");
+      setLoading(false);
+      return;
+    }
 
     const json = await res.json();
 
