@@ -36,7 +36,7 @@ export async function summarizeTranscript(
 
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 1024,
+    max_tokens: 4096,
     messages: [
       {
         role: "user",
@@ -55,7 +55,7 @@ export async function summarizeTranscript(
   }
 
   // Strip markdown code fences if the model wrapped the JSON in ```json ... ```
-  const raw = content.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  const raw = content.text.replace(/^```(?:json)?\r?\n?/im, "").replace(/\r?\n?```\s*$/m, "").trim();
 
   let parsed: Omit<SummaryResult, "tokens_used">;
   try {
